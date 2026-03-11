@@ -1,0 +1,16 @@
+# Node
+node_modules
+.next
+out
+
+# Python
+api/.venv
+**/__pycache__
+*.pyc
+
+# Env files
+.env
+.env.local
+
+# Editor / OS
+.DS_Store
