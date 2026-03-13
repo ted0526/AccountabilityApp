@@ -1,6 +1,7 @@
-paddlepaddle==3.2.2
+paddlepaddle==3.3.0
 paddleocr
 fastapi
 uvicorn
 python-multipart
 pillow
+pyspellchecker
