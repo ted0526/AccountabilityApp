@@ -11,9 +11,9 @@ api/.venv
 # Env files
 .env
 .env.local
+web/.env.local
 
 # Editor / OS
 .DS_Store
 
 IMG_0750.jpg
-api/
