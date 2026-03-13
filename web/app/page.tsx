@@ -1,65 +1,189 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+
+type OcrItem = {
+  lineNumber: number;
+  text: string;
+  done: boolean;
+  confidence: number;
+};
+
+type OcrResponse = {
+  title: string;
+  lineCount: number;
+  rawLines: string[];
+  items: OcrItem[];
+  imageInfo?: {
+    maxSide: number;
+  };
+};
+
+export default function HomePage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [items, setItems] = useState<OcrItem[]>([]);
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const nextFile = e.target.files?.[0] ?? null;
+    setFile(nextFile);
+    setError("");
+  }
+
+  async function handleUpload() {
+    if (!file) {
+      setError("Please choose an image first.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("http://127.0.0.1:8000/ocr", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed with ${res.status}`);
+      }
+
+      const data: OcrResponse = await res.json();
+      setItems(data.items ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function updateItem(index: number, patch: Partial<OcrItem>) {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  }
+
+  function removeItem(index: number) {
+    setItems((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((item, i) => ({ ...item, lineNumber: i + 1 })),
+    );
+  }
+
+  function addItem() {
+    setItems((prev) => [
+      ...prev,
+      {
+        lineNumber: prev.length + 1,
+        text: "",
+        done: false,
+        confidence: 1,
+      },
+    ]);
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-neutral-50 text-neutral-900">
+      <div className="mx-auto max-w-md px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Accountability
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-1 text-sm text-neutral-500">
+            Upload a handwritten list and clean up the tasks.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+          <div className="flex flex-col gap-3">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium">Upload image</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={onFileChange}
+                className="block w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-sm file:font-medium"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={!file || loading}
+              className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {loading ? "Reading..." : "Extract tasks"}
+            </button>
+
+            {error && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+          </div>
         </div>
-      </main>
-    </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Tasks</h2>
+          <button
+            type="button"
+            onClick={addItem}
+            className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium"
+          >
+            Add
+          </button>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {items.length === 0 ? (
+            <div className="rounded-3xl bg-white p-5 text-sm text-neutral-500 shadow-sm ring-1 ring-black/5">
+              No tasks yet.
+            </div>
+          ) : (
+            items.map((item, index) => (
+              <div
+                key={`${item.lineNumber}-${index}`}
+                className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    onChange={(e) =>
+                      updateItem(index, { done: e.target.checked })
+                    }
+                    className="mt-1 h-5 w-5 rounded"
+                  />
+
+                  <input
+                    value={item.text}
+                    onChange={(e) =>
+                      updateItem(index, { text: e.target.value })
+                    }
+                    placeholder="Edit task..."
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    className="text-sm text-neutral-400 hover:text-neutral-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </main>
   );
 }
